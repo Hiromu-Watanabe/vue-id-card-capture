@@ -8,6 +8,7 @@
     />
   </div>
   <button @click="snapPhoto">Snap Photo</button>
+  <p>{{ validResult ? "正常に撮影されました" : "免許証を枠内に正しく収めて撮影してください" }}</p>
   <canvas ref="canvasElement" width="640" height="480"></canvas>
 </template>
 
@@ -16,6 +17,7 @@ import { ref, onMounted } from "vue";
 
 const videoElement = ref<HTMLVideoElement | null>(null);
 const canvasElement = ref<HTMLCanvasElement | null>(null);
+const validResult = ref<boolean>(false);
 
 /**
  * 1.カメラ映像を取得
@@ -43,8 +45,50 @@ const snapPhoto = () => {
     const context = canvasElement.value.getContext("2d");
     if (context) {
       context.drawImage(videoElement.value, 0, 0, 640, 480);
+      if (validateImage()) {
+        validResult.value = true;
+        console.log("Validation passed!");
+      } else {
+        validResult.value = false;
+        console.log("Validation failed!");
+      }
     }
   }
+};
+
+/**
+ * バリデーション機能
+ * - ガイドの枠内に免許証が正しく収められているか判定
+ * - 現状は色味(白系統が占める割合が70%以上)で判定
+ */
+const validateImage = () => {
+  if (!canvasElement.value) return false;
+
+  const context = canvasElement.value.getContext("2d");
+  if (!context) return false;
+
+  const imageData = context.getImageData(0, 0, canvasElement.value.width, canvasElement.value.height);
+  const data = imageData.data;
+
+  let whitePixelCount = 0;
+  const totalPixels = data.length / 4;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+
+    // TODO: 免許証が正しく枠内に収まったかどうかのバリデーションの仕方を探す => 「色味で判定はない方法」かつ「OpenCVなどの重い処理を行わず軽量に動くこと」を必要条件
+    // 白色または白系統の色を検出 (一旦 RGB 値がそれぞれ 200 以上としているが部屋のライトの色味や光量によって左右されてしまう)
+    if (r > 200 && g > 200 && b > 200) {
+      whitePixelCount++;
+    }
+  }
+
+  const whitePixelRatio = whitePixelCount / totalPixels;
+
+  // 白色の割合が 70% 以上かどうかを確認
+  return whitePixelRatio > 0.7;
 };
 </script>
 
